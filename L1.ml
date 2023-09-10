@@ -1,12 +1,18 @@
+load "Listsort";
+load "Int";
+load "Bool";
+
 (* ========================================= SINTASSI ========================================= *)
 
 type loc = string
 
 datatype oper = piu | meno | uguale | mu
 
-datatype type_L =  int  | unit  | bool | function of type_L * type_L (* <========== FUNZIONI =======> *)
+datatype type_L =  int  | unit  | bool | funtype of type_L * type_L (* <========== FUNZIONI =======> *)
 
 datatype type_loc = intref
+
+type store = (loc * int) list
 
 type typeE = (loc*type_loc) list
 
@@ -23,8 +29,6 @@ datatype exp =
   |   CBNfn of type_L * exp   (* <========== FUNZIONI =======> *)
   |   CBNapp of exp * exp     (* <========== FUNZIONI =======> *)
   |   CBNfix of exp           (* <========== FUNZIONI =======> *)
-
-type store = (loc * int) list
 
 (* ################ FUNZIONI DI SUPPORTO ################ *)
 
@@ -161,13 +165,19 @@ fun infertype gamma (Integer n) = SOME int
   | infertype gamma (While (e1,e2)) 
     = (case (infertype gamma e1, infertype gamma e2) of
            (SOME bool, SOME unit) => SOME unit 
-         | _ => NONE );
+         | _ => NONE )
+  | infertype gamma (CBNfn(t,e))
+    = (NONE) (* TODO: *)
+  | infertype gamma (CBNapp(e1,e2))
+    = (case (infertype gamma e1, infertype gamma e2) of 
+      (SOME(funtype (t1,t2)), SOME te2) => (if t1 = te2 then SOME t2 else NONE)
+      | _ => NONE)
+  | infertype gamma (CBNfix e)
+    = (case (infertype gamma e) of 
+      SOME(funtype((funtype (t1,t2)), (funtype(t1',t2')))) => (if t1 = t1' andalso t2 = t2' then SOME(funtype(t1,t2)) else NONE )
+      | _ => NONE);
 
 (* =================================== FUNZIONI PER STAMPARE =================================== *)
-
-load "Listsort";
-load "Int";
-load "Bool";
 
 fun printop piu    = "+"
   | printop meno   = "-"
@@ -189,6 +199,9 @@ fun printexp (Integer n) = Int.toString n
                                      ^ (printexp e2)
   | printexp (While (e1,e2)) =  "while " ^ (printexp e1 ) 
                                        ^ " do " ^ (printexp e2)
+  | printexp (CBNfn (t,e)) = "CBNfn " ^ printexp(e)
+  | printexp (CBNapp(e1,e2)) = "CBNapp(" ^ (printexp(e1)) ^ ", " ^ (printexp(e2)) ^ ")" 
+  | printexp (CBNfix(e)) = "CBNfix(" ^ (printexp(e)) ^ ")" 
 
 fun printstore' [] = ""
   | printstore' ((l,n)::pairs) = l ^ "=" ^ (Int.toString n) 
