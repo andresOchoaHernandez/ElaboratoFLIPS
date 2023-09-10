@@ -11,18 +11,18 @@ datatype type_loc = intref
 type typeE = (loc*type_loc) list
 
 datatype exp =
-        Boolean of bool
-    |   Integer of int
-    |   Op of exp * oper * exp
-    |   If of exp * exp * exp
-    |   Assign of loc * exp
-    |   Skip 
-    |   Seq of exp * exp
-    |   While of exp * exp
-    |   Deref of loc
-    |   CBNfn of type_L * exp   (* <========== FUNZIONI =======> *)
-    |   CBNapp of exp * exp     (* <========== FUNZIONI =======> *)
-    |   CBNfix of exp           (* <========== FUNZIONI =======> *)
+      Boolean of bool
+  |   Integer of int
+  |   Op of exp * oper * exp
+  |   If of exp * exp * exp
+  |   Assign of loc * exp
+  |   Skip 
+  |   Seq of exp * exp
+  |   While of exp * exp
+  |   Deref of loc
+  |   CBNfn of type_L * exp   (* <========== FUNZIONI =======> *)
+  |   CBNapp of exp * exp     (* <========== FUNZIONI =======> *)
+  |   CBNfix of exp           (* <========== FUNZIONI =======> *)
 
 type store = (loc * int) list
 
@@ -49,6 +49,20 @@ fun update'  front [] (l,n) = NONE
         update' ((l',n')::front) pairs (l,n)
 
 fun update (s, (l,n)) = update' [] s (l,n)
+
+(* Sostituzione *)
+fun substitute expression x (Integer n)         = Integer n
+|   substitute expression x (Boolean b)         = Boolean b
+|   substitute expression x (Skip)              = Skip
+|   substitute expression x (Op(e1,operand,e2)) = Op( substitute expression x e1, operand, substitute expression x e2 )
+|   substitute expression x (If(e1,e2,e3))      = If( substitute expression x e1, substitute expression x e2, substitute expression x e3 )
+|   substitute expression x (Assign(l,e1))      = Assign( l,substitute expression x e1 )
+|   substitute expression x (Deref l)           = Deref l 
+|   substitute expression x (Seq(e1,e2))        = Seq( substitute expression x e1, substitute expression x e2 )
+|   substitute expression x (While(e1,e2))      = While( substitute expression x e1, substitute expression x e2 )
+|   substitute expression x (CBNfn(t,e))        = CBNfn( t,substitute expression (x+1) e )
+|   substitute expression x (CBNapp(e1,e2))     = CBNapp( substitute expression x e1,substitute expression x e2 )
+|   substitute expression x (CBNfix e)          = CBNfix( substitute expression x e )
 
 (* ###################################################### *)
 
@@ -102,7 +116,7 @@ fun reduction (Integer n,s) = NONE
 |   reduction (CBNfn(t,e),s) = NONE                         (* <========== FUNZIONI =======> *)
 |   reduction (CBNapp(e1,e2),s) =                           (* <========== FUNZIONI =======> *)
       (case e1 of                                           (* <========== FUNZIONI =======> *)
-        CBNfn(t,e) => SOME((* TODO replacement *)) |        (* <========== FUNZIONI =======> *) 
+        CBNfn(t,e) => SOME(substitute e2 0 e,s) |           (* <========== FUNZIONI =======> *) 
         _          => (                                     (* <========== FUNZIONI =======> *)
           case reduction(e1,s) of                           (* <========== FUNZIONI =======> *)
             SOME(e1',s') => SOME(CBNapp(e1',e2),s') |       (* <========== FUNZIONI =======> *)   
