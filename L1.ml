@@ -29,11 +29,11 @@ type store = (loc * int) list
 (* ################ FUNZIONI DI SUPPORTO ################ *)
 
 (* Controlla se ho un valore o un'espressione *)
-fun valore (Integer n)  = true
-|   valore (Boolean b)  = true
-|   valore (Skip)       = true
-|   valore (CBNfn(t,e)) = true  (* <========== FUNZIONI =======> *)
-|   valore _ = false
+fun is_val (Integer n)  = true
+|   is_val (Boolean b)  = true
+|   is_val (Skip)       = true
+|   is_val (CBNfn(t,e)) = true  (* <========== FUNZIONI =======> *)
+|   is_val _ = false
 
 (* Ritorna il valore di una locazione nello store *)
 fun lookup ( [], l ) = NONE
@@ -65,7 +65,7 @@ fun reduction (Integer n,s) = NONE
         | (Integer x1, uguale, Integer x2) => SOME(Boolean (x1=x2), s)
         | (Integer x1, mu, Integer x2)     => SOME(Boolean (x1 >= x2), s)
         | (e1,opr,e2) => (                                               
-            if (valore e1) then (                                        
+            if (is_val e1) then (                                        
                 case reduction (e2,s) of 
                     SOME (e2',s') => SOME (Op(e1,opr,e2'),s')     
                 | NONE => NONE )                           
@@ -196,7 +196,7 @@ fun printred' (e,s) =
         ( TextIO.print ("\n -->  " ^ printconf (e',s') ) ;
           printred' (e',s'))
       | NONE => (TextIO.print "\n -/->  " ; 
-                 if valore e then 
+                 if is_val e then 
                      TextIO.print "(a value)\n" 
                  else 
                      TextIO.print "(stuck - not a value)" )
