@@ -1,16 +1,36 @@
+(* ============================== FIBONACCI ============================== *)
+(*
+    fibonacci (n) :
+
+      if n == 0:
+        return 0
+      else
+          if n == 1:
+            return 1
+          els
+            return fibonacci(n-1) + fibonacci(n-2)
+
+La funzione viene applicata con argomento n, controlla se è uguale a 0, se lo è ritorna 0 altrimenti controlla
+se n è uguale a 1, se lo è ritorna 1 altrimenti chiama in modo ricorsivo se stessa con argomento n-1 e lo sommerà al risultato dell'altra chiamata
+ricorsiva che avrà come argomento n-2
+
+printred(CBNapp(CBNfix (CBNfn(funtype(int,int),CBNfn(int,If(Op(Var 0, uguale, Integer 0),Integer 0,If(Op(Var 0,uguale,Integer 1),Integer 1,Op(CBNapp(Var 1,Op(Var 0, meno,Integer 1)),piu,CBNapp(Var 1,Op(Var 0, meno,Integer 2)))))))),Integer 13),[]);
+
+Che calcola il 13esimo elemento della sequenza di fibonacci, ossia 233 -->  < 233 , {} >
+*)
+
 load "Listsort";
 load "Int";
 load "Bool";
 
 (* ========================================= SINTASSI ========================================= *)
+datatype type_L =  int  | unit  | bool | funtype of type_L * type_L; 
 
-type loc = string
-
-datatype oper = piu | meno | uguale | mu
-
-datatype type_L =  int  | unit  | bool | funtype of type_L * type_L (* <========== FUNZIONI =======> *)
+datatype oper = piu | meno | uguale | mu;
 
 datatype type_loc = intref
+
+type loc = string
 
 type store = (loc * int) list
 
@@ -26,9 +46,10 @@ datatype exp =
   |   Seq of exp * exp
   |   While of exp * exp
   |   Deref of loc
-  |   CBNfn of type_L * exp   (* <========== FUNZIONI =======> *)
-  |   CBNapp of exp * exp     (* <========== FUNZIONI =======> *)
-  |   CBNfix of exp           (* <========== FUNZIONI =======> *)
+  |   Var of int 
+  |   CBNfn of type_L * exp   
+  |   CBNapp of exp * exp     
+  |   CBNfix of exp           
 
 (* ################ FUNZIONI DI SUPPORTO ################ *)
 
@@ -36,7 +57,7 @@ datatype exp =
 fun is_val (Integer n)  = true
 |   is_val (Boolean b)  = true
 |   is_val (Skip)       = true
-|   is_val (CBNfn(t,e)) = true  (* <========== FUNZIONI =======> *)
+|   is_val (CBNfn(t,e)) = true  
 |   is_val _ = false
 
 (* Ritorna il valore di una locazione nello store *)
@@ -61,7 +82,8 @@ fun substitute expression x (Integer n)         = Integer n
 |   substitute expression x (Op(e1,operand,e2)) = Op( substitute expression x e1, operand, substitute expression x e2 )
 |   substitute expression x (If(e1,e2,e3))      = If( substitute expression x e1, substitute expression x e2, substitute expression x e3 )
 |   substitute expression x (Assign(l,e1))      = Assign( l,substitute expression x e1 )
-|   substitute expression x (Deref l)           = Deref l 
+|   substitute expression x (Deref l)           = Deref l
+|   substitute expression x (Var v)             = if x = v then expression else Var v
 |   substitute expression x (Seq(e1,e2))        = Seq( substitute expression x e1, substitute expression x e2 )
 |   substitute expression x (While(e1,e2))      = While( substitute expression x e1, substitute expression x e2 )
 |   substitute expression x (CBNfn(t,e))        = CBNfn( t,substitute expression (x+1) e )
@@ -73,59 +95,60 @@ fun substitute expression x (Integer n)         = Integer n
 (* =================================== SEMANTICA SMALL STEP =================================== *)
 
 (* Implementa le regole di riduzione di L1 per tutti i costrutti specificati nella sintassi *)
-fun reduction (Integer n,s) = NONE
-|   reduction (Boolean b,s) = NONE
-|   reduction (Skip,s)      = NONE  
-|   reduction (Op (e1,opr,e2),s) = 
-        (case (e1,opr,e2) of
-          (Integer x1, piu, Integer x2)    => SOME(Integer (x1+x2), s)
-        | (Integer x1, meno, Integer x2)   => SOME(Integer (x1-x2), s)
-        | (Integer x1, uguale, Integer x2) => SOME(Boolean (x1=x2), s)
-        | (Integer x1, mu, Integer x2)     => SOME(Boolean (x1 >= x2), s)
-        | (e1,opr,e2) => (                                               
-            if (is_val e1) then (                                        
-                case reduction (e2,s) of 
-                    SOME (e2',s') => SOME (Op(e1,opr,e2'),s')     
-                | NONE => NONE )                           
-            else (                                                 
-                case reduction (e1,s) of 
-                    SOME (e1',s') => SOME(Op(e1',opr,e2),s')      
-                | NONE => NONE ) ) )
-|   reduction (If (e1,e2,e3),s) =
-        (case e1 of
-            Boolean(true) => SOME(e2,s)                           
-        | Boolean(false) => SOME(e3,s)                          
-        | _ => (case reduction (e1,s) of
-                    SOME(e1',s') => SOME(If(e1',e2,e3),s')      
-                    | NONE => NONE ))
-|   reduction (Deref l,s) = 
-        (case lookup  (s,l) of                
-            SOME n => SOME(Integer n,s)                          
-            | NONE => NONE )                  
-|   reduction (Assign (l,e),s) =                                  
-        (case e of                                                 
-            Integer n => (case update (s,(l,n)) of 
-                            SOME s' => SOME(Skip, s')           
-                            | NONE => NONE)                                   
-        | _ => (case reduction (e,s) of                           
-                    SOME (e',s') => SOME(Assign (l,e'), s')    
-                    | NONE => NONE  ) )                          
-|   reduction (While (e1,e2),s) = SOME( If(e1,Seq(e2,While(e1,e2)),Skip),s)                                   
-|   reduction (Seq (e1,e2),s) =                                   
-        (case e1 of                                                 
-            Skip => SOME(e2,s)                                     
-        | _ => ( case reduction (e1,s) of                           
-                    SOME (e1',s') => SOME(Seq (e1',e2), s')       
-                | NONE => NONE ) )
-|   reduction (CBNfn(t,e),s) = NONE                         (* <========== FUNZIONI =======> *)
-|   reduction (CBNapp(e1,e2),s) =                           (* <========== FUNZIONI =======> *)
-      (case e1 of                                           (* <========== FUNZIONI =======> *)
-        CBNfn(t,e) => SOME(substitute e2 0 e,s) |           (* <========== FUNZIONI =======> *) 
-        _          => (                                     (* <========== FUNZIONI =======> *)
-          case reduction(e1,s) of                           (* <========== FUNZIONI =======> *)
-            SOME(e1',s') => SOME(CBNapp(e1',e2),s') |       (* <========== FUNZIONI =======> *)   
-            _            => NONE ))                         (* <========== FUNZIONI =======> *)  
-|   reduction (CBNfix(e),s) = SOME(CBNapp(e,CBNfix(e)),s)   (* <========== FUNZIONI =======> *)
+fun reduction (Integer n,s) = NONE                                                (* Integer caso base *)
+|   reduction (Boolean b,s) = NONE                                                (* Boolean caso base *)
+|   reduction (Skip,s)      = NONE                                                                      
+|   reduction (Op (e1,opr,e2),s) =                                                (*Operation*)                                  
+        (case (e1,opr,e2) of                                                      (*|         *)                       
+          (Integer x1, piu, Integer x2)    => SOME(Integer (x1+x2), s)            (*|--[  + ] *)                
+        | (Integer x1, meno, Integer x2)   => SOME(Integer (x1-x2), s)            (*|--[  - ] *)      
+        | (Integer x1, uguale, Integer x2) => SOME(Boolean (x1=x2), s)            (*|--[ == ] *)                      
+        | (Integer x1, mu, Integer x2)     => SOME(Boolean (x1 >= x2), s)         (*|--[ >= ] *)                                    
+        | (e1,opr,e2) => (                                                                                                
+            if (is_val e1) then (                                                 (* op2 *)                                   
+                case reduction (e2,s) of                                                                                      
+                    SOME (e2',s') => SOME (Op(e1,opr,e2'),s')                                                             
+                | NONE => NONE )                                                                                      
+            else (                                                                (* op1 *)                                  
+                case reduction (e1,s) of                                                                            
+                    SOME (e1',s') => SOME(Op(e1',opr,e2),s')                                                                  
+                | NONE => NONE ) ) )                                                                          
+|   reduction (If (e1,e2,e3),s) =                                                 (* If *)              
+        (case e1 of                                                                                       
+            Boolean(true) => SOME(e2,s)                                                                             
+        | Boolean(false) => SOME(e3,s)                                                                                
+        | _ => (case reduction (e1,s) of                                                                            
+                    SOME(e1',s') => SOME(If(e1',e2,e3),s')                                                        
+                    | NONE => NONE ))                                                                       
+|   reduction (Deref l,s) =                                                       (* Deref *)                                
+        (case lookup  (s,l) of                                                                                          
+            SOME n => SOME(Integer n,s)                                                                                       
+            | NONE => NONE )                                                                                      
+|   reduction (Var v,s) = NONE                                                    (* Var *)                                      
+|   reduction (Assign (l,e),s) =                                                  (* Assign *)                                        
+        (case e of                                                                                                        
+            Integer n => (case update (s,(l,n)) of                                                                        
+                            SOME s' => SOME(Skip, s')                                                                     
+                            | NONE => NONE)                                                                                 
+        | _ => (case reduction (e,s) of                                                                                 
+                    SOME (e',s') => SOME(Assign (l,e'), s')                                                             
+                    | NONE => NONE  ) )                                                                                   
+|   reduction (While (e1,e2),s) = SOME( If(e1,Seq(e2,While(e1,e2)),Skip),s)       (* While *)                                              
+|   reduction (Seq (e1,e2),s) =                                                   (* Sequnce *)                                               
+        (case e1 of                                                                                                   
+            Skip => SOME(e2,s)                                                                                            
+        | _ => ( case reduction (e1,s) of                                                                                 
+                    SOME (e1',s') => SOME(Seq (e1',e2), s')                                                             
+                | NONE => NONE ) )                                                                                  
+|   reduction (CBNfn(t,e),s) = NONE                                                (* [CBN] function *)                                         
+|   reduction (CBNapp(e1,e2),s) =                                                  (* [CBN] apply function *)                   
+      (case e1 of                                                                                                         
+        CBNfn(t,e) => SOME(substitute e2 0 e,s) |                                                                          
+        _          => (                                                                                                   
+          case reduction(e1,s) of                                                                                         
+            SOME(e1',s') => SOME(CBNapp(e1',e2),s') |                                                                        
+            _            => NONE ))                                                                                         
+|   reduction (CBNfix(e),s) = SOME(CBNapp(e,CBNfix(e)),s)                           (* [CBN] fix *)                                        
 
 (* =================================== SEMANTICA BIG STEP   =================================== *)
 
@@ -134,6 +157,10 @@ fun evaluate (e,s) = case reduction (e,s) of
                        | SOME (e',s') => evaluate (e',s')
 
 (* =================================== TIPAGGIO ================================================ *) 
+
+(* PROBLEMA *)
+(* ATTUALMENT È val infertype = fn : (string * type_loc) list -> exp -> type_L option *)
+(* DEVE ESSERE                       (string * type_loc) list * type_L list -> exp -> type_L option*)
 
 fun infertype gamma (Integer n) = SOME int
   | infertype gamma (Boolean b) = SOME bool
@@ -157,6 +184,7 @@ fun infertype gamma (Integer n) = SOME int
     = (case (lookup (gamma,l), infertype gamma e) of
            (SOME intref,SOME int) => SOME unit
          | _ => NONE)
+  | infertype gamma (Var v)  = NONE (* TODO: *)
   | infertype gamma (Skip) = SOME unit
   | infertype gamma (Seq (e1,e2))  
     = (case (infertype gamma e1, infertype gamma e2) of
@@ -201,7 +229,8 @@ fun printexp (Integer n) = Int.toString n
                                        ^ " do " ^ (printexp e2)
   | printexp (CBNfn (t,e)) = "CBNfn " ^ printexp(e)
   | printexp (CBNapp(e1,e2)) = "CBNapp(" ^ (printexp(e1)) ^ ", " ^ (printexp(e2)) ^ ")" 
-  | printexp (CBNfix(e)) = "CBNfix(" ^ (printexp(e)) ^ ")" 
+  | printexp (CBNfix(e)) = "CBNfix(" ^ (printexp(e)) ^ ")"
+  | printexp (Var v) = "Var " ^ Int.toString(v)
 
 fun printstore' [] = ""
   | printstore' ((l,n)::pairs) = l ^ "=" ^ (Int.toString n) 
@@ -230,10 +259,3 @@ fun printred' (e,s) =
 
 fun printred (e,s) = (TextIO.print ("      "^(printconf (e,s))) ;
                           printred' (e,s))
-
-(* ============================== TEST ============================== *)
-(* TEST "MENO"   *)
-(* printred(Assign("c",Op(Integer 1,meno,Integer 1)),[]); *)
-
-(* TEST "UGUALE" *)
-(* printred(Assign("c",Op(Integer 1,uguale,Integer 1)),[]); *)
