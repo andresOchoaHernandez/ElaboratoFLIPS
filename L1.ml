@@ -2,7 +2,7 @@
 
 type loc = string
 
-datatype oper = piu | mu
+datatype oper = piu | meno | uguale | mu
 
 datatype type_L =  int  | unit  | bool
 
@@ -55,8 +55,10 @@ fun reduction (Integer n,s) = NONE
 |   reduction (Skip,s)      = NONE  
 |   reduction (Op (e1,opr,e2),s) = 
         (case (e1,opr,e2) of
-            (Integer x1, piu, Integer x2) => SOME(Integer (x1+x2), s)   
-        | (Integer x1, mu, Integer x2) => SOME(Boolean (x1 >= x2), s)
+          (Integer x1, piu, Integer x2)    => SOME(Integer (x1+x2), s)
+        | (Integer x1, meno, Integer x2)   => SOME(Integer (x1-x2), s)
+        | (Integer x1, uguale, Integer x2) => SOME(Boolean (x1=x2), s)
+        | (Integer x1, mu, Integer x2)     => SOME(Boolean (x1 >= x2), s)
         | (e1,opr,e2) => (                                               
             if (valore e1) then (                                        
                 case reduction (e2,s) of 
@@ -137,8 +139,10 @@ load "Listsort";
 load "Int";
 load "Bool";
 
-fun printop piu = "+"
-  | printop mu = ">="
+fun printop piu    = "+"
+  | printop meno   = "-"
+  | printop uguale = "=="
+  | printop mu     = ">="
                          
 fun printexp (Integer n) = Int.toString n
   | printexp (Boolean b) = Bool.toString b
@@ -185,4 +189,8 @@ fun printred (e,s) = (TextIO.print ("      "^(printconf (e,s))) ;
                           printred' (e,s))
 
 (* ============================== TEST ============================== *)
-(* printred(Assign("b",Op(Integer 2,piu,Integer 1)),[("a",1)]); *)
+(* TEST "MENO"   *)
+(* printred(Assign("c",Op(Integer 1,meno,Integer 1)),[]); *)
+
+(* TEST "UGUALE" *)
+(* printred(Assign("c",Op(Integer 1,uguale,Integer 1)),[]); *)
