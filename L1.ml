@@ -23,8 +23,6 @@ datatype exp =
 
 type store = (loc * int) list
 
-(* =================================== SEMANTICA SMALL STEP =================================== *)
-
 (* ################ FUNZIONI DI SUPPORTO ################ *)
 
 (* Controlla se ho un valore o un'espressione *)
@@ -38,7 +36,7 @@ fun lookup ( [], l ) = NONE
   | lookup ( (l',n')::pairs, l) = 
     if l=l' then SOME n' else lookup (pairs,l)
 
-(* Aggiorna/aggiunge una coppia (loc,val) *)
+(* Aggiorna/aggiunge una coppia (loc,val) allo store e ritorna quello aggiornato appongiandosi ad una funzione di supporto *)
 fun update'  front [] (l,n) = NONE
  |  update'  front ((l',n')::pairs) (l,n) = 
     if l=l' then 
@@ -50,6 +48,9 @@ fun update (s, (l,n)) = update' [] s (l,n)
 
 (* ###################################################### *)
 
+(* =================================== SEMANTICA SMALL STEP =================================== *)
+
+(* Implementa le regole di riduzione di L1 per tutti i costrutti specificati nella sintassi *)
 fun reduction (Integer n,s) = NONE
 |   reduction (Boolean b,s) = NONE
 |   reduction (Skip,s)      = NONE  
@@ -108,6 +109,8 @@ fun infertype gamma (Integer n) = SOME int
   | infertype gamma (Op (e1,opr,e2)) 
     = (case (infertype gamma e1, opr, infertype gamma e2) of
           (SOME int, piu, SOME int) => SOME int
+        | (SOME int, meno, SOME int) => SOME int
+        | (SOME int, uguale, SOME int) => SOME bool
         | (SOME int, mu, SOME int) => SOME bool
         | _ => NONE)
   | infertype gamma (If (e1,e2,e3)) 
