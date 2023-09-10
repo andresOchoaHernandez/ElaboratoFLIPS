@@ -4,7 +4,7 @@ type loc = string
 
 datatype oper = piu | meno | uguale | mu
 
-datatype type_L =  int  | unit  | bool
+datatype type_L =  int  | unit  | bool | function of type_L * type_L (* <========== FUNZIONI =======> *)
 
 datatype type_loc = intref
 
@@ -20,15 +20,19 @@ datatype exp =
     |   Seq of exp * exp
     |   While of exp * exp
     |   Deref of loc
+    |   CBNfn of type_L * exp   (* <========== FUNZIONI =======> *)
+    |   CBNapp of exp * exp     (* <========== FUNZIONI =======> *)
+    |   CBNfix of exp           (* <========== FUNZIONI =======> *)
 
 type store = (loc * int) list
 
 (* ################ FUNZIONI DI SUPPORTO ################ *)
 
 (* Controlla se ho un valore o un'espressione *)
-fun valore (Integer n) = true
-|   valore (Boolean b) = true
-|   valore (Skip) = true
+fun valore (Integer n)  = true
+|   valore (Boolean b)  = true
+|   valore (Skip)       = true
+|   valore (CBNfn(t,e)) = true  (* <========== FUNZIONI =======> *)
 |   valore _ = false
 
 (* Ritorna il valore di una locazione nello store *)
@@ -94,7 +98,16 @@ fun reduction (Integer n,s) = NONE
             Skip => SOME(e2,s)                                     
         | _ => ( case reduction (e1,s) of                           
                     SOME (e1',s') => SOME(Seq (e1',e2), s')       
-                | NONE => NONE ) )   
+                | NONE => NONE ) )
+|   reduction (CBNfn(t,e),s) = NONE                         (* <========== FUNZIONI =======> *)
+|   reduction (CBNapp(e1,e2),s) =                           (* <========== FUNZIONI =======> *)
+      (case e1 of                                           (* <========== FUNZIONI =======> *)
+        CBNfn(t,e) => SOME((* TODO replacement *)) |        (* <========== FUNZIONI =======> *) 
+        _          => (                                     (* <========== FUNZIONI =======> *)
+          case reduction(e1,s) of                           (* <========== FUNZIONI =======> *)
+            SOME(e1',s') => SOME(CBNapp(e1',e2),s') |       (* <========== FUNZIONI =======> *)   
+            _            => NONE ))                         (* <========== FUNZIONI =======> *)  
+|   reduction (CBNfix(e),s) = SOME(CBNapp(e,CBNfix(e)),s)   (* <========== FUNZIONI =======> *)
 
 (* =================================== SEMANTICA BIG STEP   =================================== *)
 
