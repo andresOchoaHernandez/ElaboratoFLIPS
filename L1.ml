@@ -65,6 +65,10 @@ fun lookup ( [], l ) = NONE
   | lookup ( (l',n')::pairs, l) = 
     if l=l' then SOME n' else lookup (pairs,l)
 
+(* Ritorna un elemento ad una data posizione *)
+fun takeElementAt [] m = NONE
+| takeElementAt (hd::tl) m = if m=0 then SOME hd else takeElementAt tl (m-1)
+
 (* Aggiorna/aggiunge una coppia (loc,val) allo store e ritorna quello aggiornato appongiandosi ad una funzione di supporto *)
 fun update'  front [] (l,n) = NONE
  |  update'  front ((l',n')::pairs) (l,n) = 
@@ -156,54 +160,39 @@ fun evaluate (e,s) = case reduction (e,s) of
                          NONE => (e,s)
                        | SOME (e',s') => evaluate (e',s')
 
-(* =================================== TIPAGGIO ================================================ *) 
-
-(* PROBLEMA *)
-(* ATTUALMENT È val infertype = fn : (string * type_loc) list -> exp -> type_L option *)
-(* DEVE ESSERE                       (string * type_loc) list * type_L list -> exp -> type_L option*)
-
+(* =================================== TIPAGGIO ================================================ *)
 fun infertype gamma (Integer n) = SOME int
-  | infertype gamma (Boolean b) = SOME bool
-  | infertype gamma (Op (e1,opr,e2)) 
-    = (case (infertype gamma e1, opr, infertype gamma e2) of
-          (SOME int, piu, SOME int) => SOME int
-        | (SOME int, meno, SOME int) => SOME int
-        | (SOME int, uguale, SOME int) => SOME bool
-        | (SOME int, mu, SOME int) => SOME bool
+|   infertype gamma (Boolean b) = SOME bool
+|   infertype gamma (Op (e1,oper,e2)) 
+      = (case (infertype gamma e1, oper, infertype gamma e2) of
+           (SOME int, piu,    SOME int) => SOME int
+          |(SOME int, meno,   SOME int) => SOME int
+          |(SOME int, uguale, SOME int) => SOME bool
+          |(SOME int, mu,     SOME int) => SOME bool 
+          |_ => NONE)
+|   infertype gamma (If (e1,e2,e3)) 
+      = (case (infertype gamma e1, infertype gamma e2, infertype gamma e3) of
+          (SOME bool, SOME type_e2, SOME type_e3) => 
+          (if type_e2=type_e3 then SOME type_e2 else NONE)
+          |_ => NONE)
+|   infertype gamma (Deref l) 
+      = (case lookup ((#1 gamma),l) of
+          SOME intref => SOME int
+          | NONE => NONE)
+|   infertype gamma (Assign (l,e)) 
+      = (case (lookup ((#1 gamma),l), infertype gamma e) of
+        (SOME intref,SOME int) => SOME unit
         | _ => NONE)
-  | infertype gamma (If (e1,e2,e3)) 
-    = (case (infertype gamma e1, infertype gamma e2, infertype gamma e3) of
-           (SOME bool, SOME t2, SOME t3) => 
-           (if t2=t3 then SOME t2 else NONE)
-         | _ => NONE)
-  | infertype gamma (Deref l) 
-    = (case lookup (gamma,l) of
-           SOME intref => SOME int
-         | NONE => NONE)
-  | infertype gamma (Assign (l,e)) 
-    = (case (lookup (gamma,l), infertype gamma e) of
-           (SOME intref,SOME int) => SOME unit
-         | _ => NONE)
-  | infertype gamma (Var v)  = NONE (* TODO: *)
-  | infertype gamma (Skip) = SOME unit
-  | infertype gamma (Seq (e1,e2))  
-    = (case (infertype gamma e1, infertype gamma e2) of
-           (SOME unit, SOME t2) => SOME t2
-         | _ => NONE )
-  | infertype gamma (While (e1,e2)) 
-    = (case (infertype gamma e1, infertype gamma e2) of
-           (SOME bool, SOME unit) => SOME unit 
-         | _ => NONE )
-  | infertype gamma (CBNfn(t,e))
-    = (NONE) (* TODO: *)
-  | infertype gamma (CBNapp(e1,e2))
-    = (case (infertype gamma e1, infertype gamma e2) of 
-      (SOME(funtype (t1,t2)), SOME te2) => (if t1 = te2 then SOME t2 else NONE)
-      | _ => NONE)
-  | infertype gamma (CBNfix e)
-    = (case (infertype gamma e) of 
-      SOME(funtype((funtype (t1,t2)), (funtype(t1',t2')))) => (if t1 = t1' andalso t2 = t2' then SOME(funtype(t1,t2)) else NONE )
-      | _ => NONE);
+|   infertype gamma (Skip) = SOME unit
+|   infertype gamma (Var n) = takeElementAt (#2 gamma) n
+|   infertype gamma (Seq (e1,e2))  
+      = (case (infertype gamma e1, infertype gamma e2) of
+        (SOME unit, SOME t2) => SOME t2
+        | _ => NONE )
+|   infertype gamma (While (e1,e2)) = (case (infertype gamma e1, infertype gamma e2) of (SOME bool, SOME unit) => SOME unit | _ => NONE )
+|   infertype gamma (CBNfn (t,e))   = (case (infertype (#1 gamma, t::(#2 gamma)) e) of (SOME t1 ) => SOME (funtype (t,t1)) | _ => NONE) 
+|   infertype gamma (CBNapp (f,x))  = (case (infertype gamma f, infertype gamma x) of (SOME (funtype (t1, t2)), SOME ta) => (if t1 = ta then SOME t2 else NONE) | _ => NONE)
+|   infertype gamma (CBNfix e) = (case (infertype gamma e) of SOME (funtype(funtype (t1, t2), (funtype(t1', t2')))) => (if t1 = t1' andalso t2 = t2' then SOME (funtype (t1, t2)) else NONE) | _ => NONE);
 
 (* =================================== FUNZIONI PER STAMPARE =================================== *)
 
